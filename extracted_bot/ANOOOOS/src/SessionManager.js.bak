@@ -1,0 +1,81 @@
+const fs = require('fs');
+const path = require('path');
+const Session = require('./Session');
+
+class SessionManager {
+    constructor() {
+        this.sessions = new Map();
+        this.sessionsDir = path.join(__dirname, '..', 'sessions');
+        
+        if (!fs.existsSync(this.sessionsDir)) {
+            fs.mkdirSync(this.sessionsDir, { recursive: true });
+        }
+    }
+
+    async init() {
+        console.log('🔄 Chargement des sessions existantes...');
+        const folders = fs.readdirSync(this.sessionsDir).filter(f => fs.statSync(path.join(this.sessionsDir, f)).isDirectory());
+        
+        for (const number of folders) {
+            if (fs.existsSync(path.join(this.sessionsDir, number, 'creds.json'))) {
+                try {
+                    await this.createSession(number);
+                } catch (e) {
+                    console.error(`Erreur au chargement de ${number}:`, e.message);
+                }
+            }
+        }
+        console.log(`✅ ${this.sessions.size} session(s) chargée(s).`);
+    }
+
+    async createSession(number) {
+        const cleanNumber = number.replace(/[^0-9]/g, '');
+        
+        // ✅ CORRECTION : Si la session existe en mémoire mais qu'elle a échoué, on la supprime
+        if (this.sessions.has(cleanNumber)) {
+            const existing = this.sessions.get(cleanNumber);
+            if (['loggedOut', 'error', 'disconnected'].includes(existing.status)) {
+                console.log(`[${cleanNumber}] Nettoyage de l'ancienne session échouée.`);
+                this.sessions.delete(cleanNumber);
+                // Petite pause pour laisser le système libérer les fichiers
+                await new Promise(r => setTimeout(r, 1000)); 
+            } else {
+                return existing; // Si elle est "connecting" ou "open", on la garde
+            }
+        }
+
+        const session = new Session(cleanNumber);
+        this.sessions.set(cleanNumber, session);
+        
+        await session.start();
+        return session;
+    }
+
+    getSession(number) {
+        const cleanNumber = number.replace(/[^0-9]/g, '');
+        return this.sessions.get(cleanNumber);
+    }
+
+    getStatus(number) {
+        const session = this.getSession(number);
+        if (!session) return { status: 'not_found' };
+        return {
+            status: session.status,
+            code: session.pairingCode || null
+        };
+    }
+
+    listSessions() {
+        const list = [];
+        for (const [number, session] of this.sessions.entries()) {
+            list.push({
+                number,
+                status: session.status,
+                code: session.pairingCode || null
+            });
+        }
+        return list;
+    }
+}
+
+module.exports = SessionManager;

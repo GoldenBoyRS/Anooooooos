@@ -1,0 +1,33 @@
+{
+  "name": "ANOS_VOLDIGOAD MINI-MD",
+  "description": "WhatsApp multi-device bot (Node.js/Baileys)",
+  "repository": "https://github.com/GoldenBoyRS/Anos_Voldigoad_Mini_MD",
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "baileys",
+    "node"
+  ],
+  "env": {
+    "NODE_ENV": {
+      "description": "Environment",
+      "value": "production"
+    },
+    "TZ": {
+      "description": "Timezone",
+      "value": "Haiti/Cabaret",
+      "required": false
+    }
+  },
+  "formation": {
+    "worker": {
+      "quantity": 1
+    }
+  },
+  "addons": [],
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ]
+}

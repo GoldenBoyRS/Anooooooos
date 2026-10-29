@@ -1,0 +1,103 @@
+const yts = require('yt-search');
+const axios = require('axios');
+
+const newsletterContext = {
+    forwardingScore: 1,
+    isForwarded: true,
+    forwardedNewsletterMessageInfo: {
+        newsletterJid: '120363422530463919@newsletter',
+        newsletterName: '𝐀𝐍𝐎𝐒_𝐕𝐎𝐋𝐃𝐈𝐆𝐎𝐀𝐃_𝐌𝐈𝐍𝐈_𝐌𝐃',
+        serverMessageId: -1
+    }
+};
+
+async function playCommand(sock, chatId, message) {
+    try {
+        const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
+        const searchQuery = text.split(' ').slice(1).join(' ').trim();
+        
+        if (!searchQuery) {
+            return await sock.sendMessage(chatId, { 
+                text: "🎵 *TÉLÉCHARGEMENT DE MUSIQUE* 🎵\n\nVeuillez fournir le nom de la chanson à télécharger.\n\n📌 *Exemple:* `.play Imagine - John Lennon`\n✨ *Exemple:* `.play Bohemian Rhapsody`",
+                contextInfo: newsletterContext
+            });
+        }
+
+        await sock.sendMessage(chatId, {
+            react: { text: '🔍', key: message.key }
+        });
+
+        const { videos } = await yts(searchQuery);
+        if (!videos || videos.length === 0) {
+            return await sock.sendMessage(chatId, { 
+                text: `❌ *Aucun résultat trouvé*\n\nJe n'ai pas trouvé de musique pour "${searchQuery}".\n\nVérifie l'orthographe ou essaie un autre titre.`,
+                contextInfo: newsletterContext
+            });
+        }
+
+        await sock.sendMessage(chatId, {
+            text: "⏳ *Téléchargement en cours...*\n\nJe prépare ta musique, patiente quelques instants 🎵",
+            contextInfo: newsletterContext
+        });
+
+        const video = videos[0];
+        const urlYt = video.url;
+        const videoTitle = video.title;
+        const videoDuration = video.duration.timestamp || 'Durée inconnue';
+        const videoViews = video.views ? new Intl.NumberFormat().format(video.views) : 'Inconnu';
+
+        await sock.sendMessage(chatId, {
+            text: `🎵 *CHANSON TROUVÉE* 🎵\n\n📝 *Titre:* ${videoTitle}\n⏱️ *Durée:* ${videoDuration}\n👁️ *Vues:* ${videoViews}\n\n⬇️ Téléchargement en cours...`,
+            contextInfo: newsletterContext
+        });
+
+        const response = await axios.get(`https://apis-keith.vercel.app/download/dlmp3?url=${urlYt}`, {
+            timeout: 30000
+        });
+        const data = response.data;
+
+        if (!data || !data.status || !data.result || !data.result.downloadUrl) {
+            return await sock.sendMessage(chatId, { 
+                text: "❌ *Échec du téléchargement*\n\nL'API ne répond pas correctement. Réessaie plus tard.",
+                contextInfo: newsletterContext
+            });
+        }
+
+        const audioUrl = data.result.downloadUrl;
+        const title = data.result.title || videoTitle;
+
+        const audioCaption = `🎵 *${title}* 🎵\n\n✅ *Téléchargement réussi !*\n\n📥 *Téléchargé par ${global.botname || 'ANOS_VOLDI'}*`;
+        
+        await sock.sendMessage(chatId, {
+            audio: { url: audioUrl },
+            mimetype: "audio/mpeg",
+            fileName: `${title}.mp3`,
+            caption: audioCaption,
+            contextInfo: newsletterContext
+        }, { quoted: message });
+        
+        await sock.sendMessage(chatId, {
+            react: { text: '✅', key: message.key }
+        });
+
+    } catch (error) {
+        console.error('Erreur dans la commande play:', error);
+        
+        let errorMessage = '❌ *ÉCHEC DU TÉLÉCHARGEMENT*\n\n';
+        
+        if (error.message && error.message.includes('timeout')) {
+            errorMessage += 'Le serveur a mis trop de temps à répondre. Réessaie dans quelques instants.';
+        } else if (error.message && error.message.includes('ECONNREFUSED')) {
+            errorMessage += 'Impossible de se connecter au serveur. Vérifie ta connexion internet.';
+        } else {
+            errorMessage += 'Une erreur inattendue est survenue. Réessaie plus tard.\n\n📌 Assure-toi que le titre de la chanson est correct.';
+        }
+        
+        await sock.sendMessage(chatId, { 
+            text: errorMessage,
+            contextInfo: newsletterContext
+        });
+    }
+}
+
+module.exports = playCommand;
