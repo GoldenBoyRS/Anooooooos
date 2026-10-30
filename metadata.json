@@ -1,6 +1,0 @@
-{
-  "name": "Anos Voldigoad Mini MD - Multi-Session Manager",
-  "description": "Multi-session WhatsApp bot management system with local session isolation, 500+ session scaling, live web panel, and automated test suite.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
